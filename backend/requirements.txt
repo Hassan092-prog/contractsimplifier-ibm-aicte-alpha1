@@ -1,0 +1,18 @@
+# ── Core Framework ─────────────────────────────────────────────────────────────
+fastapi>=0.111.0
+uvicorn[standard]>=0.30.0
+
+# ── Anthropic Claude SDK ────────────────────────────────────────────────────────
+anthropic>=0.28.0
+
+# ── PDF Extraction ─────────────────────────────────────────────────────────────
+pypdf>=4.2.0
+
+# ── Environment variable loading ───────────────────────────────────────────────
+python-dotenv>=1.0.0
+
+# ── Multipart form support (required for UploadFile) ──────────────────────────
+python-multipart>=0.0.9
+
+# ── Type / Validation ──────────────────────────────────────────────────────────
+pydantic>=2.7.0
