@@ -66,12 +66,20 @@ pip install -r requirements.txt
 ```
 
 ### 4 — Start the FastAPI server
+
+Start the server from the **workspace root** to ensure package-relative imports resolve correctly:
 ```bash
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+# From the workspace root:
+backend/.venv/bin/uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+```
+Or, if running from within the `backend` directory, launch with `PYTHONPATH`:
+```bash
+# From within the backend directory:
+PYTHONPATH=.. .venv/bin/uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-The API is now live at **http://localhost:8000**.  
-Interactive docs: **http://localhost:8000/docs**
+The API is now live at **http://127.0.0.1:8000**.  
+Interactive docs: **http://127.0.0.1:8000/docs**
 
 ---
 
@@ -166,14 +174,30 @@ data: {"type":"summary","verdict":"..."}\n\n
 
 ## Running the Frontend Locally (Teammate 2)
 
+### 1 — Set up environment variables
+Copy the template to `.env.local`:
 ```bash
 cd frontend
+cp .env.example .env.local
+```
+Vite will expose `VITE_API_BASE_URL` to the client. In macOS/development, configure it to `http://127.0.0.1:8000` (IPv4 loopback) to avoid connection mismatches on dual-stack hosts.
+
+### 2 — Install Node packages and start Dev Server
+```bash
 npm install
 npm run dev
-# Dev server starts at http://localhost:5173
+# Dev server starts at http://localhost:5173 (supporting IPv6 loopback [::1]:5173)
 ```
 
-The frontend must call the backend at `http://localhost:8000` (configurable via `VITE_API_BASE_URL`).
+The frontend calls the backend at the configured `VITE_API_BASE_URL`.
+
+---
+
+## Integration Details & Troubleshooting
+
+- **CORS Configuration**: We modified `backend/main.py`'s CORS origins to include `http://[::1]:5173` alongside standard loopbacks to support browsers routing requests from IPv6-bound Vite pages.
+- **Client-Side File Parsing**: To support `.txt` uploads without modifying teammate 1's backend endpoint (which natively processes `.pdf`), the frontend reads `.txt` files locally using the standard HTML5 `FileReader` API and submits the content via the `text` field.
+- **Demo Mode**: To facilitate evaluation and testing when an Anthropic API key is not configured, the frontend provides a **"Try Demo Mode"** button. This fully simulates a live, progressive SSE clause analysis and verdict summary visualization.
 
 ---
 
