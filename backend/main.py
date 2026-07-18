@@ -39,10 +39,11 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("ContractSimplifier backend starting up…")
-    if not os.environ.get("ANTHROPIC_API_KEY"):
+    if not os.environ.get("GROQ_API_KEY"):
         logger.warning(
-            "ANTHROPIC_API_KEY is not set! "
-            "The /api/analyze endpoint will return errors until it is configured."
+            "GROQ_API_KEY is not set! "
+            "The /api/analyze endpoint will return errors until it is configured. "
+            "Get a free key at https://console.groq.com"
         )
     yield
     logger.info("ContractSimplifier backend shutting down.")

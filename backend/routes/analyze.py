@@ -27,7 +27,7 @@ import logging
 import os
 from typing import AsyncIterator, Optional
 
-import anthropic
+import groq
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 
@@ -43,7 +43,7 @@ router = APIRouter()
 # Maximum allowed input length (characters). Overridable via env.
 MAX_INPUT_CHARS = int(os.environ.get("MAX_INPUT_CHARS", 50_000))
 
-# Maximum number of clauses we'll send to Claude in one request.
+# Maximum number of clauses we'll send to the LLM in one request.
 MAX_CLAUSES = 50
 
 
@@ -203,24 +203,24 @@ async def _analyze_stream(text: str) -> AsyncIterator[str]:
         logger.error("Environment configuration error: %s", e)
         yield _sse(ErrorResult(message=str(e)).model_dump())
 
-    except anthropic.AuthenticationError:
-        logger.error("Anthropic authentication failed — check ANTHROPIC_API_KEY")
+    except groq.AuthenticationError:
+        logger.error("Groq authentication failed — check GROQ_API_KEY")
         yield _sse(
             ErrorResult(
-                message="Authentication with the AI service failed. Please check the API key configuration."
+                message="Authentication with the AI service failed. Please check your GROQ_API_KEY."
             ).model_dump()
         )
 
-    except anthropic.RateLimitError:
-        logger.warning("Anthropic rate limit hit")
+    except groq.RateLimitError:
+        logger.warning("Groq rate limit hit")
         yield _sse(
             ErrorResult(
                 message="The AI service is temporarily rate-limited. Please wait a moment and try again."
             ).model_dump()
         )
 
-    except anthropic.APIStatusError as e:
-        logger.error("Anthropic API error %s: %s", e.status_code, e.message)
+    except groq.APIStatusError as e:
+        logger.error("Groq API error %s: %s", e.status_code, e.message)
         yield _sse(
             ErrorResult(
                 message=f"AI service error (HTTP {e.status_code}). Please try again later."
