@@ -102,10 +102,12 @@ async def _analyze_stream(text: str) -> AsyncIterator[str]:
         )
         return
 
-    # ── 3 & 4. Stream + parse Claude output ───────────────────────────────
+    # ── 3 & 4. Stream + parse LLM output ────────────────────────────────
     buffer = ""
     in_summary = False  # True after we've seen the ===SUMMARY=== separator
     summary_buffer = ""
+    parsed_clauses: list[ClauseResult] = []   # track emitted clauses for fallback
+    summary_emitted = False
 
     try:
         async for chunk in stream_analysis(clauses):
@@ -119,8 +121,13 @@ async def _analyze_stream(text: str) -> AsyncIterator[str]:
                 if not line:
                     continue
 
-                # Detect the summary separator
-                if line == "===SUMMARY===":
+                # Log every parsed line at DEBUG level for troubleshooting
+                logger.debug("PARSED LINE: %r", line)
+
+                # Detect the summary separator — be tolerant of whitespace/backticks
+                stripped = line.strip().strip("`").strip()
+                if stripped == "===SUMMARY===" or stripped == "=== SUMMARY ===" or stripped.upper() == "===SUMMARY===":
+                    logger.info("Summary separator detected")
                     in_summary = True
                     continue
 
@@ -156,6 +163,7 @@ async def _analyze_stream(text: str) -> AsyncIterator[str]:
                             risk_level=raw.get("risk_level", "MEDIUM"),
                             reasoning=raw.get("reasoning", ""),
                         )
+                        parsed_clauses.append(clause_result)
                         yield _sse(clause_result.model_dump())
                     except (json.JSONDecodeError, KeyError, ValueError) as e:
                         logger.warning("Failed to parse clause JSON: %s | line: %s", e, line)
@@ -163,10 +171,14 @@ async def _analyze_stream(text: str) -> AsyncIterator[str]:
                         # partial chunks that will complete in the next iteration.
 
         # ── Flush any remaining buffer content ──────────────────────────────
-        # Handle case where model didn't end with a newline
+        # After the stream ends, anything left in `buffer` that didn't get a
+        # trailing newline needs to be processed.
         remainder = buffer.strip()
-        if remainder and not in_summary:
-            if remainder.startswith("{") and remainder.endswith("}"):
+        if remainder:
+            if in_summary:
+                # The summary JSON came without a trailing newline — merge it
+                summary_buffer += remainder
+            elif remainder.startswith("{") and remainder.endswith("}"):
                 try:
                     raw = json.loads(remainder)
                     if "verdict" in raw:
@@ -187,17 +199,50 @@ async def _analyze_stream(text: str) -> AsyncIterator[str]:
                 except (json.JSONDecodeError, ValueError):
                     pass  # Genuinely unparseable remainder — discard
 
-        # Flush summary buffer if separator was the last thing
+        # Flush summary buffer (catches both in-loop accumulation and post-loop flush)
         if in_summary and summary_buffer.strip():
+            sb = summary_buffer.strip()
+            logger.debug("Flushing summary buffer: %r", sb)
+            # Strip any trailing backticks the model might add
+            sb = sb.strip("`").strip()
             try:
-                raw = json.loads(summary_buffer.strip())
+                raw = json.loads(sb)
                 summary = SummaryResult(
                     verdict=raw.get("verdict", ""),
                     overall_risk=raw.get("overall_risk", "MEDIUM"),
                 )
                 yield _sse(summary.model_dump())
-            except (json.JSONDecodeError, ValueError):
-                pass
+                summary_emitted = True
+                logger.info("Summary emitted: overall_risk=%s", raw.get("overall_risk"))
+            except (json.JSONDecodeError, ValueError) as e:
+                logger.warning("Failed to parse summary buffer: %s | raw: %r", e, sb)
+
+        # ── Synthesize summary from clauses if model dropped it ──────────────
+        if not summary_emitted and parsed_clauses:
+            logger.warning("Model did not emit summary — synthesizing from %d parsed clauses", len(parsed_clauses))
+            risk_order = {"HIGH": 2, "MEDIUM": 1, "LOW": 0}
+            highest = max(parsed_clauses, key=lambda c: risk_order.get(c.risk_level, 0))
+            overall = highest.risk_level
+            high_count = sum(1 for c in parsed_clauses if c.risk_level == "HIGH")
+            med_count  = sum(1 for c in parsed_clauses if c.risk_level == "MEDIUM")
+            if high_count:
+                verdict = (
+                    f"This contract contains {high_count} high-risk clause(s) that require careful attention. "
+                    f"Review highlighted clauses before signing and consider seeking legal advice."
+                )
+            elif med_count:
+                verdict = (
+                    f"This contract is mostly standard but contains {med_count} clause(s) worth reviewing. "
+                    f"Read all medium-risk items carefully before signing."
+                )
+            else:
+                verdict = (
+                    "All clauses appear standard and low-risk. "
+                    "This agreement looks balanced, but always read it in full before signing."
+                )
+            fallback_summary = SummaryResult(verdict=verdict, overall_risk=overall)
+            yield _sse(fallback_summary.model_dump())
+            logger.info("Synthesized fallback summary emitted: overall_risk=%s", overall)
 
     except EnvironmentError as e:
         logger.error("Environment configuration error: %s", e)
