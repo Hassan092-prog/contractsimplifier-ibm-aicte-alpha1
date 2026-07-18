@@ -2,6 +2,8 @@
 
 > Paste or upload a legal / rental contract and get a **plain-English explanation + risk rating (LOW / MEDIUM / HIGH)** for every clause, plus an overall summary verdict — powered by Anthropic Claude.
 
+**Live AWS App Runner URL**: [https://contractsimplifier.us-east-1.awsapprunner.com](https://contractsimplifier.us-east-1.awsapprunner.com) *(Placeholder - update with your deployed URL)*
+
 ---
 
 ## Project Structure
@@ -193,11 +195,30 @@ The frontend calls the backend at the configured `VITE_API_BASE_URL`.
 
 ---
 
+## Running with Docker (Containerized Production)
+
+### 1 — Build the Docker image
+Run the following command from the workspace root directory:
+```bash
+docker build -t contractsimplifier .
+```
+
+### 2 — Run the container
+Start the container and pass your `ANTHROPIC_API_KEY` as an environment variable at runtime (do not bake it into the image):
+```bash
+docker run -p 8000:8000 -e ANTHROPIC_API_KEY="your_api_key_here" contractsimplifier
+```
+
+The application is now live at **http://localhost:8000** (serving both the React frontend and FastAPI backend APIs from a single container on port 8000).
+
+---
+
 ## Integration Details & Troubleshooting
 
 - **CORS Configuration**: We modified `backend/main.py`'s CORS origins to include `http://[::1]:5173` alongside standard loopbacks to support browsers routing requests from IPv6-bound Vite pages.
 - **Client-Side File Parsing**: To support `.txt` uploads without modifying teammate 1's backend endpoint (which natively processes `.pdf`), the frontend reads `.txt` files locally using the standard HTML5 `FileReader` API and submits the content via the `text` field.
 - **Demo Mode**: To facilitate evaluation and testing when an Anthropic API key is not configured, the frontend provides a **"Try Demo Mode"** button. This fully simulates a live, progressive SSE clause analysis and verdict summary visualization.
+- **Single Container serving React + FastAPI**: The React frontend is built in an alpine-node build stage, and the built files are served directly by FastAPI via `StaticFiles` in the final python container. We chose FastAPI `StaticFiles` mounting over Nginx because it simplifies process management (running only Uvicorn/FastAPI, avoiding a multi-process supervisor setup or Nginx config overhead) and results in a lighter container image footprint suitable for simple AWS App Runner deployment.
 
 ---
 
