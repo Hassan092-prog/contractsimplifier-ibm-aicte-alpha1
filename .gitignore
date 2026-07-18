@@ -15,7 +15,6 @@ venv/
 env/
 ENV/
 *.egg-info/
-dist/
 build/
 .eggs/
 *.egg
@@ -48,5 +47,4 @@ desktop.ini
 *.swo
 
 # ── Docker ─────────────────────────────────────────────────────────────────────
-# Keep Dockerfile in repo; ignore generated artefacts
-*.dockerignore
+# Keep Dockerfile and .dockerignore in repo; ignore generated artefacts

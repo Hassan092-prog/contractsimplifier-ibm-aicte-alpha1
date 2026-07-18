@@ -12,7 +12,7 @@
 contractsimplifier-ibm-aicte-alpha1/
 ├── frontend/          # React + Vite (UI — built by Teammate 2)
 ├── backend/           # Python FastAPI (LLM integration)
-│   ├── main.py        # App entry point & router mount
+│   ├── main.py        # App entry point, router mount & static file serving
 │   ├── routes/
 │   │   └── analyze.py # POST /api/analyze endpoint
 │   ├── services/
@@ -22,7 +22,8 @@ contractsimplifier-ibm-aicte-alpha1/
 │   ├── prompts.py     # System prompt constant (documented for report)
 │   ├── models.py      # Pydantic request / response models
 │   └── requirements.txt
-├── Dockerfile         # Placeholder (Phase 3)
+├── Dockerfile         # Multi-stage build: Node builder → Python runner
+├── .dockerignore      # Excludes .venv, node_modules, secrets from build context
 ├── .env.example       # Template for required env vars
 ├── .gitignore
 └── README.md
@@ -226,9 +227,10 @@ The application is now live at **http://localhost:8000** (serving both the React
 
 | Branch | Purpose |
 |--------|---------|
-| `main` | Stable, always deployable |
-| `feature/backend-core` | Phase 2 backend work (this branch) |
-| `feature/frontend-ui` | Teammate 2's UI work — branch off `main` after backend merge |
+| `main` | Stable, always deployable — merged from all feature branches |
+| `feature/backend-core` | Phase 2 backend work (Hassan) |
+| `feature/frontend-ui` | Phase 3 frontend UI (Teammate 2) |
+| `feature/deployment-docs` | Phase 4b–6 containerization, AWS deployment, and documentation (Teammate 3) |
 
 ---
 
@@ -238,3 +240,4 @@ The application is now live at **http://localhost:8000** (serving both the React
 |------|-------|
 | Backend + LLM integration | Hassan (Phase 1–2) |
 | Frontend UI | Teammate 2 (Phase 3) |
+| Containerization + AWS Deployment + Documentation | Teammate 3 (Phase 4b–6) |
