@@ -86,7 +86,10 @@ function App() {
     setSummary(null);
     setErrorMessage('');
 
-    const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+    const envApiBase = import.meta.env.VITE_API_BASE_URL;
+    const apiBase = (envApiBase !== undefined && envApiBase !== '')
+      ? envApiBase
+      : (window.location.port === '5173' ? 'http://localhost:8000' : '');
     const url = `${apiBase}/api/analyze`;
 
     const formData = new FormData();

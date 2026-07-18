@@ -20,6 +20,7 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from .routes.analyze import router as analyze_router
 
@@ -83,3 +84,18 @@ app.include_router(analyze_router, prefix="/api")
 async def health():
     """Returns OK if the server is running. Does not check Claude connectivity."""
     return {"status": "ok", "version": app.version}
+
+
+# ── Static Files serving ──────────────────────────────────────────────────────
+# Serve the built React frontend. In production, the build files are copied
+# to /app/static. We mount it at / so it is accessible at the root URL.
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+static_dir = os.path.join(parent_dir, "static")
+
+if os.path.exists(static_dir):
+    app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
+else:
+    logger.warning(
+        f"Static files directory not found at {static_dir}. "
+        "Frontend will not be served from backend."
+    )
