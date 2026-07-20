@@ -1,6 +1,6 @@
 # ContractSimplifier
 
-> Paste or upload a legal / rental contract and get a **plain-English explanation + risk rating (LOW / MEDIUM / HIGH)** for every clause, plus an overall summary verdict — powered by Anthropic Claude.
+> Paste or upload a legal / rental contract and get a **plain-English explanation + risk rating (LOW / MEDIUM / HIGH)** for every clause, plus an overall summary verdict — powered primarily by **Groq API** (free tier) with **Google Gemini API** as fallback.
 
 **Live AWS App Runner URL**: [https://contractsimplifier.us-east-1.awsapprunner.com](https://contractsimplifier.us-east-1.awsapprunner.com) *(Placeholder - update with your deployed URL)*
 
@@ -18,7 +18,8 @@ contractsimplifier-ibm-aicte-alpha1/
 │   ├── services/
 │   │   ├── clause_splitter.py  # Splits raw text into individual clauses
 │   │   ├── pdf_extractor.py    # Extracts text from uploaded PDFs
-│   │   └── claude_client.py    # Anthropic SDK wrapper + SSE streaming
+│   │   ├── llm_client.py       # Groq SDK (primary) + Gemini SDK (fallback)
+│   │   └── claude_client.py    # Legacy module alias to llm_client
 │   ├── prompts.py     # System prompt constant (documented for report)
 │   ├── models.py      # Pydantic request / response models
 │   └── requirements.txt
@@ -53,7 +54,7 @@ cd contractsimplifier-ibm-aicte-alpha1
 ### 2 — Set up environment variables
 ```bash
 cp .env.example .env
-# Open .env and set ANTHROPIC_API_KEY to your real key
+# Open .env and set GROQ_API_KEY (Primary) and/or GEMINI_API_KEY (Fallback)
 ```
 
 ### 3 — Install Python dependencies
@@ -70,12 +71,12 @@ pip install -r requirements.txt
 
 ### 4 — Start the FastAPI server
 
-Start the server from the **workspace root** to ensure package-relative imports resolve correctly:
+Start the server from the **workspace root**:
 ```bash
 # From the workspace root:
 backend/.venv/bin/uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 ```
-Or, if running from within the `backend` directory, launch with `PYTHONPATH`:
+Or from within the `backend` directory:
 ```bash
 # From within the backend directory:
 PYTHONPATH=.. .venv/bin/uvicorn main:app --reload --host 0.0.0.0 --port 8000
@@ -90,11 +91,15 @@ Interactive docs: **http://127.0.0.1:8000/docs**
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `ANTHROPIC_API_KEY` | ✅ Yes | — | Your Anthropic API key |
-| `CLAUDE_MODEL` | No | `claude-3-5-sonnet-20241022` | Claude model ID |
+| `GROQ_API_KEY` | Conditional | — | Primary Groq API key (free at https://console.groq.com) |
+| `GROQ_MODEL` | No | `llama-3.3-70b-versatile` | Groq model ID |
+| `GEMINI_API_KEY` | Conditional | — | Fallback Gemini API key (from https://aistudio.google.com) |
+| `GEMINI_MODEL` | No | `gemini-2.5-flash` | Gemini model ID |
 | `BACKEND_HOST` | No | `0.0.0.0` | Uvicorn bind host |
 | `BACKEND_PORT` | No | `8000` | Uvicorn bind port |
 | `MAX_INPUT_CHARS` | No | `50000` | Max pasted text length |
+
+> At least one of `GROQ_API_KEY` or `GEMINI_API_KEY` must be configured in `.env`.
 
 ---
 

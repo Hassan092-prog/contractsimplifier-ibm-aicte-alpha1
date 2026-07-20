@@ -22,7 +22,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from .routes.analyze import router as analyze_router
+try:
+    from .routes.analyze import router as analyze_router
+except (ImportError, ValueError):
+    from routes.analyze import router as analyze_router
 
 # ── Load .env before anything else touches os.environ ─────────────────────────
 load_dotenv()
@@ -39,12 +42,22 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("ContractSimplifier backend starting up…")
-    if not os.environ.get("GROQ_API_KEY"):
-        logger.warning(
-            "GROQ_API_KEY is not set! "
-            "The /api/analyze endpoint will return errors until it is configured. "
-            "Get a free key at https://console.groq.com"
-        )
+    groq_set = bool(os.environ.get("GROQ_API_KEY"))
+    gemini_set = bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
+
+    if groq_set:
+        logger.info("Primary LLM: Groq API configured.")
+    else:
+        logger.warning("Primary LLM: GROQ_API_KEY is NOT set.")
+
+    if gemini_set:
+        logger.info("Fallback LLM: Gemini API configured.")
+    else:
+        logger.warning("Fallback LLM: GEMINI_API_KEY / GOOGLE_API_KEY is NOT set.")
+
+    if not groq_set and not gemini_set:
+        logger.warning("No LLM API keys set! Set GROQ_API_KEY or GEMINI_API_KEY in .env")
+
     yield
     logger.info("ContractSimplifier backend shutting down.")
 
@@ -54,7 +67,7 @@ app = FastAPI(
     title="ContractSimplifier API",
     description=(
         "Analyse legal/rental contract clauses and receive plain-English "
-        "explanations with risk ratings, powered by Anthropic Claude."
+        "explanations with risk ratings, powered by Groq API (primary) and Gemini API (fallback)."
     ),
     version="0.1.0",
     lifespan=lifespan,

@@ -31,10 +31,16 @@ import groq
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 
-from ..models import ClauseResult, ErrorResult, SummaryResult
-from ..services.clause_splitter import split_clauses
-from ..services.claude_client import stream_analysis
-from ..services.pdf_extractor import extract_text_from_pdf
+try:
+    from ..models import ClauseResult, ErrorResult, SummaryResult
+    from ..services.clause_splitter import split_clauses
+    from ..services.llm_client import stream_analysis
+    from ..services.pdf_extractor import extract_text_from_pdf
+except (ImportError, ValueError):
+    from models import ClauseResult, ErrorResult, SummaryResult
+    from services.clause_splitter import split_clauses
+    from services.llm_client import stream_analysis
+    from services.pdf_extractor import extract_text_from_pdf
 
 logger = logging.getLogger(__name__)
 
@@ -248,11 +254,15 @@ async def _analyze_stream(text: str) -> AsyncIterator[str]:
         logger.error("Environment configuration error: %s", e)
         yield _sse(ErrorResult(message=str(e)).model_dump())
 
+    except RuntimeError as e:
+        logger.error("LLM Execution error: %s", e)
+        yield _sse(ErrorResult(message=str(e)).model_dump())
+
     except groq.AuthenticationError:
         logger.error("Groq authentication failed — check GROQ_API_KEY")
         yield _sse(
             ErrorResult(
-                message="Authentication with the AI service failed. Please check your GROQ_API_KEY."
+                message="Authentication with Groq API failed. Please check your GROQ_API_KEY."
             ).model_dump()
         )
 
